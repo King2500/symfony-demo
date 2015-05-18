@@ -59,40 +59,35 @@ class BlogController extends Controller
     }
 
     /**
-     * Creates a new Post entity.
+     * Displays a form to create a new or edit an existing Post entity.
      *
-     * @Route("/new", name="admin_post_new")
-     * @Method({"GET", "POST"})
-     *
-     * NOTE: the Method annotation is optional, but it's a recommended practice
-     * to constraint the HTTP methods each controller responds to (by default
-     * it responds to all methods).
+     * @Route("/new/{title}", name="admin_post_new")
+     * @Route("/edit/{id}", requirements={"id" = "\d+"}, name="admin_post_edit")
      */
-    public function newAction(Request $request)
+    public function editAction(Request $request, $title = null, Post $post = null)
     {
-        $post = new Post();
-        $post->setAuthorEmail($this->getUser()->getEmail());
-        $form = $this->createForm(new PostType(), $post);
+        if ($post === null) {
+            $post = new Post();
+            $post->setTitle($title);
+            $post->setAuthorEmail($this->getUser()->getEmail());
+        }
 
+        $form = $this->createForm(new PostType(), $post);
         $form->handleRequest($request);
 
-        // the isSubmitted() method is completely optional because the other
-        // isValid() method already checks whether the form is submitted.
-        // However, we explicitly add it to improve code readability.
-        // See http://symfony.com/doc/current/best_practices/forms.html#handling-form-submits
-        if ($form->isSubmitted() && $form->isValid()) {
+        if ($form->isValid()) {
             $post->setSlug($this->get('slugger')->slugify($post->getTitle()));
 
             $em = $this->getDoctrine()->getManager();
             $em->persist($post);
             $em->flush();
 
-            return $this->redirectToRoute('admin_post_index');
+            return $this->redirectToRoute('admin_post_edit', array('id' => $post->getId()));
         }
 
-        return $this->render('admin/blog/new.html.twig', array(
-            'post' => $post,
-            'form' => $form->createView(),
+        return $this->render('admin/blog/edit.html.twig', array(
+            'post'        => $post,
+            'edit_form'   => $form->createView(),
         ));
     }
 
@@ -112,36 +107,6 @@ class BlogController extends Controller
 
         return $this->render('admin/blog/show.html.twig', array(
             'post'        => $post,
-            'delete_form' => $deleteForm->createView(),
-        ));
-    }
-
-    /**
-     * Displays a form to edit an existing Post entity.
-     *
-     * @Route("/{id}/edit", requirements={"id" = "\d+"}, name="admin_post_edit")
-     * @Method({"GET", "POST"})
-     * @Security("post.isAuthor(user)")
-     */
-    public function editAction(Post $post, Request $request)
-    {
-        $em = $this->getDoctrine()->getManager();
-
-        $editForm = $this->createForm(new PostType(), $post);
-        $deleteForm = $this->createDeleteForm($post);
-
-        $editForm->handleRequest($request);
-
-        if ($editForm->isSubmitted() && $editForm->isValid()) {
-            $post->setSlug($this->get('slugger')->slugify($post->getTitle()));
-            $em->flush();
-
-            return $this->redirectToRoute('admin_post_edit', array('id' => $post->getId()));
-        }
-
-        return $this->render('admin/blog/edit.html.twig', array(
-            'post'        => $post,
-            'edit_form'   => $editForm->createView(),
             'delete_form' => $deleteForm->createView(),
         ));
     }
